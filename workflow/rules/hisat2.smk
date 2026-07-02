@@ -9,7 +9,10 @@ rule hisat2_index:
     input:
         fasta=config["reference"]["genome_fasta"],
     output:
-        protected(touch("workflow/data/ref/hisat2_index/genome.1.ht2")),
+        protected(multiext("workflow/data/ref/hisat2_index/genome",
+            ".1.ht2", ".2.ht2", ".3.ht2", ".4.ht2",
+            ".5.ht2", ".6.ht2", ".7.ht2", ".8.ht2")),
+    cache: True,
     params:
         prefix=config["reference"]["hisat2_index_prefix"],
     conda: "../envs/hisat2.yaml"
