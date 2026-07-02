@@ -29,6 +29,9 @@ dag.png
 .DS_Store
 Thumbs.db
 
+# === AI Assistant ===
+CLAUDE.md
+
 # === Reference Implementations (not part of this project) ===
 RNA_seq_chatgpt/
 RNA_seq_deepseek/
