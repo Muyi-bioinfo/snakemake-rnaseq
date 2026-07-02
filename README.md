@@ -1,5 +1,7 @@
 # RNA-seq Pipeline
 
+[English](README.md) | [中文](README_CN.md)
+
 [![Snakemake](https://img.shields.io/badge/Snakemake-9+-brightgreen)](https://snakemake.github.io/)
 [![Docker](https://img.shields.io/badge/Docker-Supported-blue)](https://www.docker.com/)
 [![Apptainer](https://img.shields.io/badge/Apptainer-Supported-orange)](https://apptainer.org/)
