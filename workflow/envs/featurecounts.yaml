@@ -1,0 +1,7 @@
+name: featurecounts_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - subread=2.0.6

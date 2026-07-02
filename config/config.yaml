@@ -1,0 +1,123 @@
+# ============================================================
+# RNA-seq 上游分析流程 - 配置文件
+# ============================================================
+
+# ---- 项目路径 ----
+paths:
+  data_dir: "workflow/data"
+  raw_dir: "workflow/data/raw"
+  ref_dir: "workflow/data/ref"
+  # 批次标识：每次运行改这一个值即可实现产出隔离
+  batch: "20260701_WT_KO"
+  # 各步骤输出子目录（按 DAG 层级编号，{batch} 自动填充为上方 batch 值）
+  outputs:
+    fastqc_raw:     "runs/{batch}/results/01_fastqc_raw"
+    trimmomatic:    "runs/{batch}/results/02_trimmomatic"
+    fastqc_trimmed: "runs/{batch}/results/03_fastqc_trimmed"
+    hisat2:         "runs/{batch}/results/03_hisat2"
+    featurecounts:  "runs/{batch}/results/04_featurecounts"
+    multiqc:        "runs/{batch}/results/05_multiqc"
+    deseq2:             "runs/{batch}/results/06_deseq2"
+    clusterprofiler:    "runs/{batch}/results/07_clusterprofiler"
+  logs:       "runs/{batch}/logs"
+  benchmarks: "runs/{batch}/benchmarks"
+
+# ---- 容器化设置（Docker / Apptainer）----
+container:
+  # 统合镜像名称（所有 rule 共用）
+  image: "rnaseq-pipeline:latest"
+  # Docker Hub 远程地址（可选，用于拉取预构建镜像）
+  registry: ""
+
+# ---- 样本清单 — 从外部文件加载（CSV/TSV/TXT，扩展名自动识别分隔符）----
+# 文件必须包含 header 行: sample,group
+# TSV 示例:  config/samples.tsv
+# CSV 示例:  config/samples.csv（逗号分隔）
+samples_file: "config/samples.tsv"
+
+# ---- 参考基因组 ----
+reference:
+  genome_fasta: "workflow/data/ref/genome.fa"
+  annotation_gtf: "workflow/data/ref/genes.gtf"
+  hisat2_index_prefix: "workflow/data/ref/hisat2_index/genome"
+
+# ---- 读段命名格式 ----
+# mode: "paired" | "single" — 切换后无需修改 Snakefile，所有 rule 自动适配
+read_pattern:
+  mode: "paired"
+  # ---- 双端模式 (paired) ----
+  r1_suffix: "_R1.fastq.gz"
+  r2_suffix: "_R2.fastq.gz"
+  # ---- 单端模式 (single) ----
+  single_suffix: ".fastq.gz"
+
+# ---- FastQC 参数 ----
+fastqc:
+  threads: 2
+  extra: ""
+
+# ---- Trimmomatic 参数 ----
+trimmomatic:
+  threads: 4
+  # ILLUMINACLIP:去除接头, LEADING:去掉开头低质量碱基
+  # TRAILING:去掉末尾低质量碱基, SLIDINGWINDOW:滑窗剪切, MINLEN:最小长度
+  adapter_fasta: "workflow/data/ref/adapters.fa"
+  illuminaclip: "2:30:10"
+  leading: 3
+  trailing: 3
+  slidingwindow: "4:15"
+  minlen: 36
+
+# ---- HISAT2 参数 ----
+hisat2:
+  threads: 8
+  extra: ""
+
+# ---- featureCounts 参数 ----
+featurecounts:
+  threads: 4
+  # -t: 使用的GTF feature类型, -g: 使用的GTF属性作为gene_id
+  feature_type: "exon"
+  attr_type: "gene_id"
+  # 链特异性：0=unstranded, 1=stranded, 2=reversely stranded
+  strandedness: 0
+  extra: ""
+
+# ============================================================
+# DESeq2 — 差异表达分析（下游）
+# ============================================================
+deseq2:
+  # ---- 对比设计（case vs control）----
+  contrasts:
+    - name: "KO_vs_WT"
+      case: "KO"
+      control: "WT"
+  # ---- 显著性阈值 ----
+  padj_threshold: 0.05
+  log2fc_threshold: 1.0
+  # ---- 独立过滤 ----
+  independent_filtering: true
+  # ---- 输出参数 ----
+  vst_blind: true       # VST变换是否忽略实验设计
+  top_n_genes: 50       # 热图展示的top差异基因数
+
+# ============================================================
+# clusterProfiler — 基因功能富集分析（下游）
+# ============================================================
+clusterprofiler:
+  # 物种 OrgDb（conda 环境已预装 org.Hs.eg.db / org.Mm.eg.db）
+  # 可选: "org.Hs.eg.db" | "org.Mm.eg.db" | "org.Rn.eg.db" | ...
+  org_db: "org.Hs.eg.db"
+  # KEGG 物种代码（用于 enrichKEGG / pathview）
+  # hsa=人, mmu=小鼠, rno=大鼠, dme=果蝇, sce=酵母, ath=拟南芥
+  kegg_organism: "hsa"
+  # 基因 ID 转换：DEG 表中的 ID 类型 → ENTREZID
+  # bitr() 的 fromType 参数，常见: "ENSEMBL" | "SYMBOL" | "ENTREZID" | "REFSEQ"
+  from_type: "ENSEMBL"
+  # 富集分析阈值
+  pvalue_cutoff: 0.05
+  qvalue_cutoff: 0.2
+  # 展示参数
+  show_category: 15     # 气泡图中展示的 top N 条目
+  # 基因 ID 列名（DEG 表中的列名）
+  gene_id_col: "gene_id"

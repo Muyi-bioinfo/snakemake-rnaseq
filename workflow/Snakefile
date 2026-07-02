@@ -1,0 +1,147 @@
+# ============================================================
+# RNA-seq 上游分析流程 — Snakemake 主文件（编排层）
+# ============================================================
+#
+# DAG 概览（Layer 编号对应产出目录 01-07）：
+#
+#   Layer 0:  hisat2_index ─────────────────────────────────────┐
+#                                                               │
+#   Layer 1:  fastqc_raw ─────────────────────────────────────┐ │
+#                                                             │ │
+#   Layer 2:  trimmomatic ──> fastqc_trimmed ──┐              │ │
+#                │  │                           │              │ │
+#                │  └──> hisat2_align ──────────┤──> multiqc   │ │
+#                │        (Layer 3b)            │   (Layer 5)  │ │
+#                │                              │              │ │
+#   Layer 4:  featureCounts <───────────────────┘              │ │
+#                │                                              │ │
+#   Layer 6:  DESeq2                                            │ │
+#                │                                              │ │
+#   Layer 7:  clusterProfiler                                   │ │
+#
+#   带 {sample} wildcard 的规则（Layer 1-3）Snakemake 自动并行执行所有样本
+#
+# 模块映射：
+#   rules/hisat2.smk          → hisat2_index + hisat2_align
+#   rules/fastqc.smk          → fastqc_raw + fastqc_trimmed
+#   rules/trimmomatic.smk     → trimmomatic
+#   rules/featurecounts.smk   → featureCounts
+#   rules/multiqc.smk         → MultiQC
+#   rules/deseq2.smk          → DESeq2
+#   rules/clusterprofiler.smk → GO + KEGG 富集
+#
+# include 顺序不影响执行 — Snakemake 按 output→input DAG 逆推依赖
+# ============================================================
+
+import os
+import sys
+from pathlib import Path
+
+# ---- 导入 Python 辅助函数 ----
+# Snakemake 9.x 中 __file__ 指向自身模块，不可用于定位用户 Snakefile。
+# 通过存在性检测适配两种调用方式:
+#   workflow/ 内调用 → scripts/ 在当前目录
+#   项目根 -s 调用  → scripts/ 在 workflow/ 子目录
+_scripts = "scripts"
+if not Path(_scripts).is_dir():
+    _scripts = "workflow/scripts"
+sys.path.insert(0, _scripts)
+from common import (
+    get_samples,
+    get_read_inputs,
+    get_read_input_list,
+    get_trimmed_reads,
+    get_trimmed_input_list,
+    get_hisat2_input,
+    get_bam,
+    get_fastqc_raw_outputs,
+    get_fastqc_trimmed_outputs,
+    get_trimmomatic_outputs,
+    get_all_pipeline_targets,
+    get_deseq2_groups_json,
+    get_deseq2_contrasts_json,
+    get_deseq2_outputs,
+    get_clusterprofiler_outputs,
+    validate_config,
+    validate_input_files,
+)
+
+# ---- 加载配置文件 ----
+configfile: "config/config.yaml"
+
+# ---- 批次路径格式化（统一将 {batch} 占位符替换为实际批次名）----
+_batch = config["paths"]["batch"]
+config["paths"]["outputs"] = {k: v.format(batch=_batch) for k, v in config["paths"]["outputs"].items()}
+config["paths"]["log_root"] = config["paths"]["logs"].format(batch=_batch)
+config["paths"]["bench_root"] = config["paths"]["benchmarks"].format(batch=_batch)
+
+# ---- 从 config 解析样本列表 ----
+SAMPLES = get_samples(config)
+
+# ---- 启动前校验：config 合法性 + FASTQ 文件存在 ----
+validate_config(config)
+validate_input_files(config, SAMPLES)
+
+# ---- 输出目录常量（按 DAG 层级编号，规则中统一引用，改名只需改 config）----
+_O = config["paths"]["outputs"]
+OUT_FASTQC_RAW      = _O["fastqc_raw"]       # results/01_fastqc_raw
+OUT_TRIMMOMATIC     = _O["trimmomatic"]       # results/02_trimmomatic
+OUT_FASTQC_TRIMMED  = _O["fastqc_trimmed"]    # results/03_fastqc_trimmed
+OUT_HISAT2          = _O["hisat2"]            # results/03_hisat2
+OUT_FEATURECOUNTS   = _O["featurecounts"]     # results/04_featurecounts
+OUT_MULTIQC         = _O["multiqc"]           # results/05_multiqc
+OUT_DESEQ2          = _O["deseq2"]            # results/06_deseq2
+OUT_CLUSTERPROFILER = _O["clusterprofiler"]   # results/07_clusterprofiler
+
+# ---- 日志和基准根目录（供 .smk 规则引用）----
+LOG_ROOT   = config["paths"]["log_root"]
+BENCH_ROOT = config["paths"]["bench_root"]
+
+# ---- 容器化 URI 构建（Docker / Apptainer 通用）----
+# Snakemake 使用方式：
+#   Conda:        snakemake --software-deployment-method conda -j 8
+#   Apptainer:    snakemake --profile profile/docker
+#   （Snakemake 自动将 docker:// URI 转换为 SIF）
+_container_cfg = config.get("container", {})
+_container_image = _container_cfg.get("image", "rnaseq-pipeline:latest")
+_container_registry = _container_cfg.get("registry", "")
+if _container_registry:
+    CONTAINER_URI = f"docker://{_container_registry}/{_container_image}"
+else:
+    CONTAINER_URI = f"docker://{_container_image}"
+
+# ---- 顶层目标规则 ----
+rule all:
+    """
+    顶层目标规则：定义整个流程期望产出的所有文件
+    Snakemake 从该规则出发，逆向推导 DAG 依赖关系
+
+    目标列表由 Python 函数 get_all_pipeline_targets() 动态生成，
+    自动适配 config.yaml 中 read_pattern.mode 的 PE/SE 设置
+    """
+    input:
+        get_all_pipeline_targets(config, SAMPLES),
+
+
+# ---- 模块加载（按 DAG 层级排列，便于阅读）----
+
+# Layer 0 + 3b: 基因组索引 + 序列比对
+include: "rules/hisat2.smk"
+
+# Layer 1 + 3a: 原始质控 + 剪切后质控
+include: "rules/fastqc.smk"
+
+# Layer 2: 去接头 + 质量剪切
+include: "rules/trimmomatic.smk"
+
+# Layer 4: 基因表达定量
+include: "rules/featurecounts.smk"
+
+# Layer 5: 汇总质控报告
+include: "rules/multiqc.smk"
+
+# Layer 6: 差异表达分析
+include: "rules/deseq2.smk"
+
+# Layer 7: 基因功能富集分析
+include: "rules/clusterprofiler.smk"

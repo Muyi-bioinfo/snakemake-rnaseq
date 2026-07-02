@@ -1,0 +1,16 @@
+name: clusterprofiler_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.3.2
+  - bioconductor-clusterprofiler=4.10.0
+  - bioconductor-enrichplot=1.22.0
+  - bioconductor-org.hs.eg.db=3.18.0
+  - bioconductor-org.mm.eg.db=3.18.0
+  - r-ggplot2=3.5.0
+  - r-dplyr=1.1.4
+  - r-readr=2.1.5
+  - r-jsonlite=1.8.8
+  - r-cowplot=1.1.3

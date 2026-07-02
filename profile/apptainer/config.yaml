@@ -1,0 +1,39 @@
+# ============================================================
+# Snakemake 配置 — Apptainer 执行模式
+# 适用于 HPC 集群（不需要 root 权限）
+#
+# 使用方式:
+#   snakemake --profile profile/apptainer
+# ============================================================
+
+# Snakefile 路径
+snakefile: "workflow/Snakefile"
+
+# 容器运行时 (Snakemake 9+ 推荐语法)
+software-deployment-method:
+  - apptainer
+
+# Apptainer 参数
+# --bind . 将当前工作目录（项目根）挂载到容器内
+# 如需挂载其他路径（如 /data），请根据实际环境修改
+apptainer-args: >-
+  --cleanenv
+  --bind .
+
+# 将 docker:// URI 拉取并转换为本地 SIF 缓存
+# 首次运行会自动拉取，后续复用缓存
+apptainer-prefix: "containers/apptainer_images"
+
+# 资源分配（根据集群配置调整）
+cores: 32
+jobs: 8
+
+# 重启机制
+restart-times: 1
+
+# 输出控制
+printshellcmds: true
+verbose: false
+
+# 延迟提交（避免瞬时大量任务提交）
+latency-wait: 60

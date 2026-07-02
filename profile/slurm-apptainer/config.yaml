@@ -1,0 +1,66 @@
+# ============================================================
+# Snakemake 配置 — Slurm + Apptainer (HPC 集群)
+#
+# 使用方式:
+#   snakemake --profile profile/slurm-apptainer
+#
+# 需要安装 slurm executor 插件:
+#   pip install snakemake-executor-plugin-slurm
+# ============================================================
+
+# Snakefile 路径
+snakefile: "workflow/Snakefile"
+
+# 执行器
+executor: slurm
+
+# 容器运行时 (Snakemake 9+ 推荐语法)
+software-deployment-method:
+  - apptainer
+apptainer-args: >-
+  --cleanenv
+  --bind /data,/scratch,/home
+apptainer-prefix: "containers/apptainer_images"
+
+# 每个样本作为一个独立 Slurm 作业
+# 最大并行作业数
+jobs: 24
+
+# 默认 Slurm 作业参数
+default-resources:
+  slurm_partition: "compute"
+  slurm_account: "your-account"
+  runtime: 240            # 4 小时 (单位: 分钟)
+  mem_mb: 16000
+  cpus_per_task: 4
+
+# 按规则覆盖资源（规则名: 参数）
+# runtime 单位为分钟
+set-resources:
+  hisat2_index:
+    runtime: 120           # 2 小时
+    mem_mb: 32000
+    cpus_per_task: 8
+  hisat2_align:
+    runtime: 360           # 6 小时
+    mem_mb: 32000
+    cpus_per_task: 8
+  trimmomatic:
+    runtime: 180           # 3 小时
+    mem_mb: 8000
+    cpus_per_task: 4
+  deseq2:
+    runtime: 60            # 1 小时
+    mem_mb: 32000
+    cpus_per_task: 4
+  clusterprofiler:
+    runtime: 60            # 1 小时
+    mem_mb: 32000
+    cpus_per_task: 4
+
+# 重启
+restart-times: 2
+
+# 输出
+printshellcmds: true
+latency-wait: 120

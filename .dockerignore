@@ -1,0 +1,18 @@
+# Snakemake 运行时缓存
+workflow/.snakemake/
+
+# 运行产出（含 GB 级数据）
+results/
+logs/
+benchmarks/
+
+# Python 字节码
+**/__pycache__/
+
+# Git
+.git/
+.gitignore
+
+# 编辑器
+.idea/
+.vscode/

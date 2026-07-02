@@ -1,0 +1,21 @@
+# ============================================================
+# Snakemake 配置 — Apptainer 执行模式（Docker 构建镜像）
+#
+# 使用 Docker 构建镜像后，通过 Apptainer 加载运行。
+# 构建: bash containers/build.sh docker
+# 使用: snakemake --profile profile/docker
+# ============================================================
+
+# Snakefile 路径
+snakefile: "workflow/Snakefile"
+
+# 容器运行时 (Snakemake 9+ 推荐语法)
+software-deployment-method:
+  - apptainer
+apptainer-args: ""
+
+cores: 16
+jobs: 4
+
+printshellcmds: true
+latency-wait: 30
