@@ -23,6 +23,8 @@ A Snakemake-based RNA-seq analysis pipeline covering raw FASTQ QC through differ
 - **Reproducible** — pinned tool versions across Conda envs and container images
 - **Extensible** — add samples or contrasts without touching the Snakefile
 
+📖 **[Snakemake Learning Guide](LEARNING_SNAKEMAKE.md)** — Learn Snakemake core concepts from this project's actual code
+
 ## Quick Start
 
 ```bash

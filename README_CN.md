@@ -23,6 +23,8 @@
 - **可复现** — Conda 环境和容器镜像均锁定工具版本
 - **易于扩展** — 新增样本或对比仅修改外部文件，零 Snakefile 改动
 
+📖 **[Snakemake 学习指南](LEARNING_SNAKEMAKE.md)** — 基于本项目代码系统学习 Snakemake 核心概念
+
 ## 快速开始
 
 ```bash
