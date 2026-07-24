@@ -883,12 +883,12 @@ Python 函数在三个位置被 Snakemake 调用：`input:` / `output:` / `param
 
 | 使用场景 | 函数 | 被调用位置 |
 |---------|------|-----------|
-| 获取样本列表 | `get_samples(config)` | Snakefile:79 |
-| PE/SE 感知 input | `get_read_inputs(wildcards, config)` | trimmomatic.smk:12 |
-| 动态 output 列表 | `get_deseq2_outputs(config)` | deseq2.smk:14 |
-| rule all 目标汇总 | `get_all_pipeline_targets(config, samples)` | Snakefile:123 |
-| 启动前校验 | `validate_config(config)` | Snakefile:82 |
-| JSON 序列化 | `to_json_str(obj)` | common.py:80 |
+| 获取样本列表 | `get_samples(config)` | [Snakefile:79](workflow/Snakefile#L79) |
+| PE/SE 感知 input | `get_read_inputs(wildcards, config)` | [trimmomatic.smk:12](workflow/rules/trimmomatic.smk#L12) |
+| 动态 output 列表 | `get_deseq2_outputs(config)` | [deseq2.smk:14](workflow/rules/deseq2.smk#L14) |
+| rule all 目标汇总 | `get_all_pipeline_targets(config, samples)` | [Snakefile:123](workflow/Snakefile#L123) |
+| 启动前校验 | `validate_config(config)` | [Snakefile:82](workflow/Snakefile#L82) |
+| JSON 序列化 | `to_json_str(obj)` | [common.py:80](workflow/scripts/common.py#L80) |
 
 ### input 函数 λ 闭包传送 config
 
@@ -1971,9 +1971,9 @@ rule fastqc:
 
 **Q**：`snakemake -s workflow/Snakefile` 不指定目标，会执行哪些 rule？
 
-**A**：Snakefile 中定义的第一个 rule 作为默认目标。本项目 Snakefile 中第一个 rule 是 `rule all`，所以执行 `rule all` 需要的所有下游 rule。如果 Snakefile 没有 `rule all` 且不指定目标，Snakemake 执行第一个 rule。
+**A**：Snakefile 中**文本顺序上第一个出现的 `rule` 定义**作为默认目标（`include:` 是文本级插入，展开后按整体文本顺序算）。本项目 `rule all`（第 114 行）在所有 `include:` 之前，是第一个 rule，Snakemake 从它的 `input` 列表逆向推导，执行所有依赖链上的 rule。
 
-**❌ 常见误区**：以为不指定目标会执行所有 rule。实际只执行默认目标及其依赖链。
+**❌ 常见误区**：① 以为不指定目标会执行所有 rule（实际只执行默认目标的依赖链）；② 以为 include 的 rule 不算"第一个"（include 是文本级插入，无边界）。例如本项目若删掉 `rule all`，默认目标变成 `include` 展开后的 `rule hisat2_index`，只会构建索引，比对、定量、差异分析全部跳过。
 
 ### D-2（01 DAG）并行度判断
 
